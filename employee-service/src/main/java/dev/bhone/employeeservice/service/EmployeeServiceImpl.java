@@ -4,6 +4,7 @@ import dev.bhone.employeeservice.config.ApiClient;
 import dev.bhone.employeeservice.dto.DepartmentDto;
 import dev.bhone.employeeservice.dto.EmployeeDto;
 import dev.bhone.employeeservice.dto.EmployeeResponseDto;
+import dev.bhone.employeeservice.dto.OrganisationDto;
 import dev.bhone.employeeservice.dto.mapper.EmployeeMapper;
 import dev.bhone.employeeservice.entity.EmployeeEntity;
 import dev.bhone.employeeservice.repository.EmployeeRepository;
@@ -60,11 +61,18 @@ public class EmployeeServiceImpl implements EmployeeService{
 
 //        DepartmentDto departmentDto = apiClient.getDepartment(employee.getDepartmentCode());
 
+        OrganisationDto organisationDto = webClient.get()
+                .uri("http://localhost:8083/organisations/" + employee.getOrganisationCode())
+                .retrieve()
+                .bodyToMono(OrganisationDto.class)
+                .block();
+
         EmployeeDto employeeDto = EmployeeMapper.mapToDto(employee);
 
         EmployeeResponseDto employeeResponseDto = EmployeeResponseDto.builder()
                 .employee(employeeDto)
                 .department(departmentDto)
+                .organisation(organisationDto)
                 .build();
 
         return employeeResponseDto;

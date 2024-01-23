@@ -10,4 +10,5 @@ import lombok.*;
 public class EmployeeResponseDto {
     private EmployeeDto employee;
     private DepartmentDto department;
+    private OrganisationDto organisation;
 }
