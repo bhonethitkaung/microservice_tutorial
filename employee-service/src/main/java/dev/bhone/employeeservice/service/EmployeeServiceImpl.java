@@ -7,23 +7,28 @@ import dev.bhone.employeeservice.dto.EmployeeResponseDto;
 import dev.bhone.employeeservice.dto.mapper.EmployeeMapper;
 import dev.bhone.employeeservice.entity.EmployeeEntity;
 import dev.bhone.employeeservice.repository.EmployeeRepository;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.retry.annotation.Retry;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 import org.springframework.web.reactive.function.client.WebClient;
 
 @Service
 public class EmployeeServiceImpl implements EmployeeService{
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(EmployeeServiceImpl.class);
+
     private final EmployeeRepository repository;
 //    private final RestTemplate restTemplate;
-//    private final WebClient webClient;
+    private final WebClient webClient;
     private final ApiClient apiClient;
 
     @Autowired
-    public EmployeeServiceImpl(EmployeeRepository repository, ApiClient apiClient) {
+    public EmployeeServiceImpl(EmployeeRepository repository, WebClient webClient, ApiClient apiClient) {
         this.repository = repository;
+        this.webClient = webClient;
         this.apiClient = apiClient;
     }
 
@@ -33,8 +38,12 @@ public class EmployeeServiceImpl implements EmployeeService{
         return EmployeeMapper.mapToDto(savedEntity);
     }
 
+//    @CircuitBreaker(name = "${spring.application.name}", fallbackMethod = "getDefaultDepartment")
+    @Retry(name = "${spring.application.name}", fallbackMethod = "getDefaultDepartment")
     @Override
     public EmployeeResponseDto getById(Long id) {
+
+        LOGGER.info("Inside getById method");
         EmployeeEntity employee = repository.findById(id).get();
 
 //        ResponseEntity<DepartmentDto> departmentResponse = restTemplate.getForEntity(
@@ -43,13 +52,34 @@ public class EmployeeServiceImpl implements EmployeeService{
 //        );
 //        DepartmentDto departmentDto = departmentResponse.getBody();
 
-//        DepartmentDto departmentDto = webClient.get()
-//                .uri("http://localhost:8080/departments/" + employee.getDepartmentCode())
-//                .retrieve()
-//                .bodyToMono(DepartmentDto.class)
-//                .block();
+        DepartmentDto departmentDto = webClient.get()
+                .uri("http://localhost:8080/departments/" + employee.getDepartmentCode())
+                .retrieve()
+                .bodyToMono(DepartmentDto.class)
+                .block();
 
-        DepartmentDto departmentDto = apiClient.getDepartment(employee.getDepartmentCode());
+//        DepartmentDto departmentDto = apiClient.getDepartment(employee.getDepartmentCode());
+
+        EmployeeDto employeeDto = EmployeeMapper.mapToDto(employee);
+
+        EmployeeResponseDto employeeResponseDto = EmployeeResponseDto.builder()
+                .employee(employeeDto)
+                .department(departmentDto)
+                .build();
+
+        return employeeResponseDto;
+    }
+
+
+    public EmployeeResponseDto getDefaultDepartment(Long id, Exception exception) {
+        LOGGER.info("Inside getDefaultDepartment method");
+        EmployeeEntity employee = repository.findById(id).get();
+
+        DepartmentDto departmentDto = DepartmentDto.builder()
+                .departmentName("R&D Department")
+                .departmentCode("RD001")
+                .departmentDescription("Research and development department")
+                .build();
 
         EmployeeDto employeeDto = EmployeeMapper.mapToDto(employee);
 
